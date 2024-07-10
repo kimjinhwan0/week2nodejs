@@ -1,10 +1,173 @@
-const SocketIO = require("socket.io");
+// -------------------------------------------
+const mongoose = require('mongoose');
+const express = require('express');
 
-module.exports = (server) => {
-  const io = SocketIO(server, { path: "/socket.io" }); // io : 통신을 위한 소켓 장치
-  io.on("connection", (socket) => {
-    socket.on("chat message", (msg) => {
-      io.emit("chat message", msg);
-    });  // 상대가 나에게 chat message라는 주제로 io.emit을 했을 때 그것을 받았다면 나도 chat message를 emit함.
-  }); // "connection"이 수립 되었을 때
-};
+// 메시지 스키마 및 모델 정의
+const messageSchema = new mongoose.Schema({
+  username: String,
+  message: String,
+  timestamp: { type: Date, default: Date.now },
+});
+
+const Message = mongoose.model('Message', messageSchema);
+
+function startSocketServer(server) {
+
+  const io = require('socket.io')(server);
+
+  // MongoDB 연결
+  mongoose.connect(process.env.MONGODB_URI);
+
+  const db = mongoose.connection;
+  db.on('error', console.error.bind(console, 'connection error:'));
+  db.once('open', () => {
+    console.log('MongoDB connected');
+  });
+
+  // Client connection management.
+  io.on('connection', (socket) => {
+    
+    console.log('a user connected');
+
+    // Find past chat.
+    Message.find().sort({ timestamp: 1 }).exec().then(messages => {
+      console.log('Sending previous messages');
+      socket.emit('previousMessages', messages);
+    }).catch(err => {
+      console.error('Error retrieving messages:', err);
+    });
+
+    // Receive chat message and broadcast.
+    socket.on('chatMessage', async (msg) => {
+      console.log('Received chat message:', msg);
+      const message = new Message(msg);
+      try {
+        await message.save();
+        console.log('Message saved:', msg);
+        io.emit('chatMessage', msg);
+      } catch (err) {
+        console.error('Error saving message:', err);
+      }
+    });
+
+
+    // Disconnection.
+    socket.on('disconnect', () => {
+      console.log('user disconnected');
+    });
+  });
+}
+
+module.exports = startSocketServer;
+
+
+// ------------------------------------------------
+// require('dotenv').config();
+
+// const express = require('express');
+// const http = require('http');
+// const socketIo = require('socket.io');
+// const mongoose = require('mongoose');
+// const cors = require('cors');
+// const path = require('path');
+
+// const app = express();
+// const server = http.createServer(app);
+// const io = socketIo(server, {
+//   cors: {
+//     origin: "*",
+//     methods: ["GET", "POST"]
+//   }
+// });
+
+// const mongoUri = process.env.MONGODB_URI;
+// const port = process.env.PORT;
+
+// if (!mongoUri) {
+//   console.error('MongoDB URI is not defined in .env file');
+//   process.exit(1);
+// }
+
+// mongoose.connect(mongoUri).then(() => {
+//   console.log('MongoDB connected');
+// }).catch(err => {
+//   console.error('MongoDB connection error:', err);
+// });
+
+// const chatSchema = new mongoose.Schema({
+//   username: String,
+//   room: String,
+//   message: String,
+//   timestamp: { type: Date, default: Date.now }
+// });
+
+// const Chat = mongoose.model('Chat', chatSchema);
+
+// io.on('connection', (socket) => {
+//   console.log('New client connected');
+
+//   socket.on('joinRoom', async ({ username, room }) => {
+//     socket.join(room);
+//     socket.username = username;
+//     socket.room = room;
+//     console.log(`${username} joined room ${room}`);
+    
+//     const joinTime = new Date();
+//     socket.joinTime = joinTime;
+
+//     try {
+//       const messages = await Chat.find({ room }).sort({ timestamp: 1 }).exec();
+//       socket.emit('init', messages);
+//     } catch (err) {
+//       console.error(err);
+//     }
+//   });
+
+//   socket.on('leaveRoom', async ({ username, room }) => {
+//     socket.leave(room);
+//     console.log(`${username} left room ${room}`);
+//     await checkAndDeleteRoom(room);
+//   });
+
+//   socket.on('chatMessage', async (msg) => {
+//     console.log('Message received:', msg);
+//     const chatMessage = new Chat(msg);
+//     try {
+//       await chatMessage.save();
+//       io.to(msg.room).emit('chatMessage', msg);
+//     } catch (err) {
+//       console.error('Error saving chat message:', err);
+//     }
+//   });
+
+//   socket.on('disconnect', async () => {
+//     const { username, room } = socket;
+//     console.log(`Client disconnected: ${username} from room ${room}`);
+//     if (room) {
+//       socket.leave(room);
+//       await checkAndDeleteRoom(room);
+//     }
+//   });
+
+//   async function checkAndDeleteRoom(room) {
+//     const clients = io.sockets.adapter.rooms.get(room);
+//     if (!clients || clients.size === 0) {
+//       try {
+//         await Chat.deleteMany({ room });
+//         console.log(`Deleted all messages in room ${room}`);
+//       } catch (err) {
+//         console.error(`Error deleting messages in room ${room}:`, err);
+//       }
+//     }
+//   }
+// });
+
+// server.listen(port, () => {
+//   console.log(`Server running on port ${port}`);
+// });
+
+// const startSocketServer = () => {
+//   io.listen(server);
+// }
+
+// module.exports = startSocketServer;

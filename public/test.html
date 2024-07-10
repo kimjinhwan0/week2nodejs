@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Socket.io Test</title>
+  <style>
+    #messages { list-style-type: none; margin: 0; padding: 0; }
+    #messages li { padding: 8px; margin-bottom: 10px; background-color: #f1f1f1; }
+    #messageInput { padding: 10px; width: 80%; }
+    #sendButton { padding: 10px; }
+  </style>
+</head>
+<body>
+  <ul id="messages"></ul>
+  <input id="usernameInput" placeholder="Enter your username" />
+  <input id="messageInput" placeholder="Type a message..." />
+  <button id="sendButton">Send</button>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io('http://localhost:3001'); // 명확한 URL 지정
+    console.log('Socket.io client initialized'); // 로그 추가
+
+    const messages = document.getElementById('messages');
+    const usernameInput = document.getElementById('usernameInput');
+    const messageInput = document.getElementById('messageInput');
+    const sendButton = document.getElementById('sendButton');
+
+    function appendMessage(message) {
+      const li = document.createElement('li');
+      li.textContent = `${message.username}: ${message.message}`;
+      messages.appendChild(li);
+    }
+
+    socket.on('connect', () => {
+      console.log('Connected to socket server'); // 연결 확인용 로그
+    });
+
+    // 이전 메시지 로드
+    socket.on('previousMessages', (msgs) => {
+      console.log('Received previous messages'); // 로그 추가
+      msgs.forEach(appendMessage);
+    });
+
+    // 새로운 메시지 수신
+    socket.on('chatMessage', (msg) => {
+      console.log('Received chat message:', msg); // 로그 추가
+      appendMessage(msg);
+    });
+
+    // 메시지 전송
+    sendButton.addEventListener('click', () => {
+      console.log('Send button clicked'); // 로그 추가
+      const message = {
+        username: usernameInput.value,
+        message: messageInput.value,
+      };
+      socket.emit('chatMessage', message);
+      messageInput.value = '';
+    });
+  </script>
+</body>
+</html>
+
+<!-- <!DOCTYPE html>
+<html>
+<head>
+  <title>Chat App</title>
+  <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <h2>Join Chat Room</h2>
+  <form id="joinForm">
+    <label for="username">Username:</label>
+    <input id="username" placeholder="Enter your username" required />
+    <label for="room">Room Code:</label>
+    <input id="room" placeholder="Enter room code" required />
+    <button type="submit">Join</button>
+  </form>
+
+  <h2 id="roomHeader" style="display: none;">Chat Room</h2>
+  <button id="leaveRoom" style="display: none;">Leave Room</button>
+  <ul id="messages"></ul>
+  <form id="chatForm" action="" style="display: none;">
+    <input id="input" autocomplete="off" placeholder="Enter your message..." required />
+    <button>Send</button>
+  </form>
+
+  <script>
+    const socket = io('http://localhost:3000');
+    let username, room;
+
+    document.getElementById('joinForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      username = document.getElementById('username').value;
+      room = document.getElementById('room').value;
+      socket.emit('joinRoom', { username, room });
+      document.getElementById('joinForm').style.display = 'none';
+      document.getElementById('chatForm').style.display = 'block';
+      document.getElementById('roomHeader').textContent = `Chat Room: ${room}`;
+      document.getElementById('roomHeader').style.display = 'block';
+      document.getElementById('leaveRoom').style.display = 'block';
+    });
+
+    socket.on('init', (messages) => {
+      const messagesList = document.getElementById('messages');
+      messagesList.innerHTML = '';
+      messages.forEach((msg) => {
+        const item = document.createElement('li');
+        item.textContent = `${formatTimestamp(msg.timestamp)} - ${msg.username}: ${msg.message}`;
+        messagesList.appendChild(item);
+      });
+    });
+
+    socket.on('chatMessage', (msg) => {
+      const item = document.createElement('li');
+      item.textContent = `${formatTimestamp(msg.timestamp)} - ${msg.username}: ${msg.message}`;
+      document.getElementById('messages').appendChild(item);
+    });
+
+    document.getElementById('chatForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('input');
+      const message = { username, room, message: input.value, timestamp: new Date() };
+      socket.emit('chatMessage', message);
+      input.value = '';
+    });
+
+    document.getElementById('leaveRoom').addEventListener('click', () => {
+      socket.emit('leaveRoom', { username, room });
+      document.getElementById('joinForm').style.display = 'block';
+      document.getElementById('chatForm').style.display = 'none';
+      document.getElementById('roomHeader').style.display = 'none';
+      document.getElementById('leaveRoom').style.display = 'none';
+      document.getElementById('messages').innerHTML = '';
+    });
+
+    function formatTimestamp(timestamp) {
+      const date = new Date(timestamp);
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    }
+  </script>
+</body>
+</html> -->
